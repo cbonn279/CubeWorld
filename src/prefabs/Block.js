@@ -1,171 +1,135 @@
 class Block extends Phaser.GameObjects.Container {
+
     constructor(scene, x, y, frameKey, screenKey) {
-        super(scene, x, y);
-        scene.add.existing(this);
+        super(scene, x, y)
+        scene.add.existing(this)
 
         // visuals
-        this.frame = scene.add.image(0, 0, frameKey).setOrigin(0.5);
-        this.screenContainer = scene.add.container(0, 0);
-        this.screen = scene.add.sprite(0, 1, screenKey).setOrigin(0.5);
+        this.frame = scene.add.image(0, 0, frameKey).setOrigin(0.5)
+        this.screen = scene.add.sprite(0, 1 , screenKey).setOrigin(0.5)
 
-        this.screenContainer.add(this.screen);
-        this.add([ this.frame, this.screenContainer ]);
+        this.add([this.frame, this.screen])
 
-        this.setScale(3);
+        this.setScale(3)
 
-        scene.physics.world.enable(this);
-        this.body.setCollideWorldBounds(true);
-        this.body.setBounce(0.12);
+        // physics
+        scene.physics.world.enable(this)
 
-        const bw = this.frame.displayWidth || 32;
-        const bh = this.frame.displayHeight || 32;
-        this.body.setSize(Math.round(bw * 0.92), Math.round(bh * 0.92));
-        this.body.setOffset(-Math.round(bw * 0.46), -Math.round(bh * 0.46));
+        this.body.setCollideWorldBounds(true)
+        this.body.setBounce(0.1)
 
-        this.frame.setInteractive({ useHandCursor: true });
+        this.body.setSize(this.frame.displayWidth * 0.9, this.frame.displayHeight * 0.9)
+        this.body.setOffset(-this.frame.displayWidth * 0.45, -this.frame.displayHeight * 0.45)
 
-        this.isHeld = false;
-        this.pointerOffset = { x: 0, y: 0 };
+        this.frame.setInteractive()
 
-        this.orientation = 0;
+        // drag control
+        this.held = false
+        this.dragOffset = {x:0, y:0}
 
-        this._flipListener = null;
+        // direction tracking
+        this.sideDown = 0
 
-        this.stateMachine = new StateMachine('idle', {
+        // state machine
+        this.stateMachine = new StateMachine('idle',{
             idle: new BlockIdleState(),
-            flipping: new BlockFlipState()
-        }, [scene, this]);
+            flip: new BlockFlipState()
+        },[scene,this])
 
-        this.frame.on('pointerdown', (pointer) => {
-            this.pickUp(pointer);
-            pointer.event.stopPropagation();
-        });
+        // pointer stuff
+        this.frame.on('pointerdown', (pointer)=>{
+            this.pickUp(pointer)
+        })
 
-        scene.input.on('pointerup', () => {
-            if (this.isHeld) this.drop();
-        });
-        scene.input.on('pointermove', (pointer) => {
-            if (this.isHeld) this.followPointer(pointer);
-        });
+        scene.input.on('pointerup', ()=>{
+            if(this.held) this.drop()
+        })
+
+        scene.input.on('pointermove', (pointer)=>{
+            if(this.held) this.drag(pointer)
+        })
     }
 
-    update() {
-        if (this.stateMachine) this.stateMachine.step();
+    update(){
+        this.stateMachine.step()
     }
 
-    requestFlipClockwise() {
-        if (!this.isHeld) return;
-        if (this.stateMachine.state === 'flipping') return;
-        this.stateMachine.transition('flipping', 90);
+    pickUp(pointer){
+        this.held = true
+        this.body.enable = false
+        this.dragOffset.x = this.x - pointer.worldX
+        this.dragOffset.y = this.y - pointer.worldY
     }
 
-    pickUp(pointer) {
-        if (this.isHeld) return;
-        this.isHeld = true;
-        if (this.body) this.body.enable = false;
-        this.pointerOffset.x = this.x - pointer.worldX;
-        this.pointerOffset.y = this.y - pointer.worldY;
-
-        this.scene.tweens.killTweensOf(this);
-        this.scene.tweens.add({
-            targets: this,
-            y: this.y - 8,
-            scale: 3.03,
-            duration: 120,
-            ease: 'Cubic.easeOut'
-        });
+    drop(){
+        this.held = false
+        this.body.enable = true
     }
 
-    drop() {
-        if (!this.isHeld) return;
-        this.isHeld = false;
-        if (this.body) {
-            this.body.enable = true;
-            this.body.setVelocity(0, 60);
-        }
-        this.scene.tweens.killTweensOf(this);
-        this.scene.tweens.add({
-            targets: this,
-            scale: 3,
-            duration: 120,
-            ease: 'Cubic.easeOut'
-        });
+    drag(pointer){
+        this.x = pointer.worldX + this.dragOffset.x
+        this.y = pointer.worldY + this.dragOffset.y
     }
 
-    followPointer(pointer) {
-        this.x = pointer.worldX + this.pointerOffset.x;
-        this.y = pointer.worldY + this.pointerOffset.y;
+    flip(){
+        if(!this.held) return
+        this.stateMachine.transition('flip')
     }
 
-    playIdle() {
-        if (this.screen && this.screen.anims) this.screen.play('Idle1', true);
-    }
 }
 
-
 class BlockIdleState extends State {
-    enter(scene, block) {
-        block.playIdle();
+
+    enter(scene, block){
+
+        // idle stance
+        block.screen.play('Idle1', true)
+
+        // timer for idle animations
+        block.idleTimer = scene.time.addEvent({
+            delay: 10000,
+            loop: true,
+            callback: () => {
+                if(block.stateMachine.state === 'idle'){
+                    block.screen.play('Idle2')
+                    block.screen.once('animationcomplete', () => {
+                        block.screen.play('Idle1', true)
+                    })
+                }
+            }
+        })
     }
-    execute(scene, block) { }
-    exit(scene, block) {}
+
+    execute(scene, block){}
+
+    exit(scene, block){
+
+        // turn off timer
+        if(block.idleTimer){
+            block.idleTimer.remove()
+            block.idleTimer = null
+        }
+
+    }
+
 }
 
 class BlockFlipState extends State {
-    enter(scene, block, degrees = 90) {
-        const newOrient = (block.orientation + degrees) % 360;
-        block.orientation = newOrient;
 
-        scene.tweens.killTweensOf(block);
-        scene.tweens.killTweensOf(block.screenContainer);
+    enter(scene, block){
 
-        const outerMs = 200;   
-        const flipMs  = 400;   
+        // rotate frame w/out screen
+        block.angle -= 90
+        block.screen.angle += 90
 
-        scene.tweens.add({
-            targets: block,
-            angle: newOrient,
-            duration: outerMs,
-            ease: 'Cubic.easeOut',
-            onComplete: () => {
-                block.screen.play('Flip', true);
+        // bottom side noted
+        block.sideDown = (block.sideDown + 1) % 4
 
-                if (block._flipListener) {
-                    block.screen.off('animationcomplete', block._flipListener);
-                    block._flipListener = null;
-                }
+        block.screen.play('Flip')
 
-                block._flipListener = function(anim) {
-                    if (anim.key === 'Flip') {
-                        block.screen.off('animationcomplete', block._flipListener);
-                        block._flipListener = null;
-                        scene.tweens.killTweensOf(block.screenContainer);
-                        block.screenContainer.setAngle(0);
-                        block.playIdle();
-                        block.stateMachine.transition('idle');
-                    }
-                };
-                block.screen.on('animationcomplete', block._flipListener);
-
-                scene.tweens.add({
-                    targets: block.screenContainer,
-                    angle: 0,
-                    duration: flipMs,
-                    ease: 'Cubic.easeIn'
-                });
-            }
-        });
-    }
-    execute(scene, block) {}
-    exit(scene, block) {
-        if (block._flipListener) {
-            block.screen.off('animationcomplete', block._flipListener);
-            block._flipListener = null;
-        }
+        // idle transition
+        block.screen.once('animationcomplete', () => {
+            this.stateMachine.transition('idle')
+        })
     }
 }
-
-// expose
-window.Block = Block;
-window.BlockIdleState = BlockIdleState;
-window.BlockFlipState = BlockFlipState;
