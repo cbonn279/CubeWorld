@@ -1,4 +1,3 @@
-// src/scenes/Load.js
 class Load extends Phaser.Scene {
     constructor() { super({ key: 'Load' }); }
 
