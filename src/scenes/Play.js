@@ -2,6 +2,10 @@ class Play extends Phaser.Scene {
     constructor() { super({ key: 'Play' }); }
 
     create() {
+        // background music
+        this.music = this.sound.add('music', { loop: true, volume: 0.2 });
+        this.music.play();
+
         // wall
         this.add.image(512, 300, 'wall').setScale(1.8).setOrigin(0.5);
 

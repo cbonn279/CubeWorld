@@ -2,6 +2,7 @@ class Block extends Phaser.GameObjects.Container {
     constructor(scene, x, y, frameKey, screenKey, Hitbox = {}) {
         super(scene, x, y);
         scene.add.existing(this);
+        this.landed = false;
 
         // combine frame and screen
         this.frame = scene.add.image(0, 0, frameKey).setOrigin(0.5);
@@ -66,6 +67,10 @@ class Block extends Phaser.GameObjects.Container {
         this.bodyFollow();
 
         if (!this.held && this.body.blocked.down) {
+            if (!this.landed) {
+                this.scene.sound.play('drop', { volume: 1 });
+                this.landed = true;
+            }
             this.body.setVelocity(0, 0);
             this.body.setAllowGravity(false);
             this.body.setImmovable(true);
@@ -75,6 +80,7 @@ class Block extends Phaser.GameObjects.Container {
     pickUp(pointer) {
         if (this.held) return;
         this.held = true;
+        this.landed = false;
 
         // draggability
         this.dragOffset.x = this.x - pointer.worldX;
@@ -157,6 +163,8 @@ class BlockIdleState extends State {
 
 class BlockFlipState extends State {
     enter(scene, block) {
+        scene.sound.play('flip', { volume: 0.1 });
+
         // rotate frame w/out screen
         block.angle -= 90;
         block.screen.angle += 90;
