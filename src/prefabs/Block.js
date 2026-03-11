@@ -6,7 +6,7 @@ class Block extends Phaser.GameObjects.Container {
 
         // combine frame and screen
         this.frame = scene.add.image(0, 0, frameKey).setOrigin(0.5);
-        this.screen = scene.add.sprite(0, 1, screenKey).setOrigin(0.5); 
+        this.screen = scene.add.sprite(0, 0, screenKey).setOrigin(0.5); 
         this.add([ this.frame, this.screen ]);
         this.setScale(3);
 
@@ -17,13 +17,17 @@ class Block extends Phaser.GameObjects.Container {
         scene.physics.world.enable(this.Scene);
         this.body = this.Scene.body;
 
+        // solidify blocks
         this.body.setCollideWorldBounds(true);
-        this.body.setBounce(0.1);
+        this.body.setBounce(0);
+        this.body.setDragX(600);
+        this.body.setDamping(true);
+        this.body.setMaxVelocity(1000, 2000);
 
         // hitboxes
         const hitboxes = {
-            boxW: Hitbox.boxW ?? 1.89,
-            boxH: Hitbox.boxH ?? 1.89,
+            boxW: Hitbox.boxW ?? 2.8,
+            boxH: Hitbox.boxH ?? 2.8,
             offsetW: Hitbox.offsetW ?? 0,
             offsetH: Hitbox.offsetH ?? 0
         };
@@ -71,9 +75,7 @@ class Block extends Phaser.GameObjects.Container {
                 this.scene.sound.play('drop', { volume: 1 });
                 this.landed = true;
             }
-            this.body.setVelocity(0, 0);
-            this.body.setAllowGravity(false);
-            this.body.setImmovable(true);
+            this.body.setVelocityX(0);
         }
     }
 
@@ -85,7 +87,6 @@ class Block extends Phaser.GameObjects.Container {
         // draggability
         this.dragOffset.x = this.x - pointer.worldX;
         this.dragOffset.y = this.y - pointer.worldY;
-        this.body.setImmovable(false);
         this.body.setAllowGravity(false);
         this.body.setVelocity(0, 0);
         this.body.setDrag(this.dragDamping);
@@ -116,7 +117,6 @@ class Block extends Phaser.GameObjects.Container {
     drop() {
         if (!this.held) return;
         this.held = false;
-        this.body.setImmovable(false);
         this.body.setAllowGravity(true);
         this.body.setVelocity(0, 0);
         this.body.setDrag(0);
