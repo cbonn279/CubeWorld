@@ -4,20 +4,20 @@ class Block extends Phaser.GameObjects.Container {
         scene.add.existing(this);
         this.landed = false;
 
-        // combine frame and screen
+        // visuals
         this.frame = scene.add.image(0, 0, frameKey).setOrigin(0.5);
-        this.screen = scene.add.sprite(0, 0, screenKey).setOrigin(0.5); 
+        this.screen = scene.add.sprite(0, 0, screenKey).setOrigin(0.5);
         this.add([ this.frame, this.screen ]);
         this.setScale(3);
 
-        // physics in scene
+        // physics config
         const sceneW = Math.round(this.frame.displayWidth);
         const sceneH = Math.round(this.frame.displayHeight);
         this.Scene = scene.add.zone(x, y, sceneW, sceneH);
         scene.physics.world.enable(this.Scene);
         this.body = this.Scene.body;
 
-        // solidify blocks
+        // physics properties
         this.body.setCollideWorldBounds(true);
         this.body.setBounce(0);
         this.body.setDragX(600);
@@ -31,22 +31,24 @@ class Block extends Phaser.GameObjects.Container {
             offsetW: Hitbox.offsetW ?? 0,
             offsetH: Hitbox.offsetH ?? 0
         };
-
         const hitW = Math.round(sceneW * hitboxes.boxW);
         const hitH = Math.round(sceneH * hitboxes.boxH);
         const offX = Math.round(sceneW * hitboxes.offsetW);
         const offY = Math.round(sceneH * hitboxes.offsetH);
-
         this.body.setSize(hitW, hitH);
         this.body.setOffset(offX, offY);
 
-        // dragging
+        // dragging vars
         this.dragSpeed = 10;
         this.dragMaxSpeed = 1200;
-        this.dragDamping = 800;
+        this.dragDamp = 800;
         this.dragOffset = { x: 0, y: 0 };
         this.frame.setInteractive({ useHandCursor: true });
         this.held = false;
+
+        // movement check
+        this.prev = { x: 0, y: 0 };
+        this.static = 2; 
 
         // block direction
         this.sideDown = 0;
@@ -61,13 +63,18 @@ class Block extends Phaser.GameObjects.Container {
         this.frame.on('pointerdown', (pointer) => this.pickUp(pointer));
         scene.input.on('pointerup', () => { if (this.held) this.drop(); });
         scene.input.on('pointermove', (pointer) => { if (this.held) this.drag(pointer); });
-
-        // body following
         this.bodyFollow();
     }
 
     update(time, delta) {
         this.stateMachine.step();
+
+        // check movement
+        if (this.held) {
+            const active = this.scene.input.activePointer;
+            this.drag(active);
+        }
+
         this.bodyFollow();
 
         if (!this.held && this.body.blocked.down) {
@@ -84,30 +91,63 @@ class Block extends Phaser.GameObjects.Container {
         this.held = true;
         this.landed = false;
 
-        // draggability
+        // draggability offset
         this.dragOffset.x = this.x - pointer.worldX;
         this.dragOffset.y = this.y - pointer.worldY;
+
+        // reference points
+        this.prev.x = pointer.worldX;
+        this.prev.y = pointer.worldY;
         this.body.setAllowGravity(false);
         this.body.setVelocity(0, 0);
-        this.body.setDrag(this.dragDamping);
+        this.body.setDrag(this.dragDamp);
     }
 
     drag(pointer) {
         if (!this.held) return;
 
-        // body movement
+        // center targets
         const targetX = pointer.worldX + this.dragOffset.x;
         const targetY = pointer.worldY + this.dragOffset.y;
         const centerX = this.body.position.x + (this.body.width * 0.5) + this.body.offset.x;
         const centerY = this.body.position.y + (this.body.height * 0.5) + this.body.offset.y;
 
-        // delta
+        // pointer movement
+        const moved = Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, this.prev.x, this.prev.y);
+
+        // body follow
+        const bodyLeft = this.body.position.x + (this.body.offset ? this.body.offset.x : 0);
+        const bodyTop  = this.body.position.y + (this.body.offset ? this.body.offset.y : 0);
+        const bodyRight = bodyLeft + this.body.width;
+        const bodyBottom = bodyTop + this.body.height;
+
+        // mouse to block
+        const pointerInsideBody =
+            pointer.worldX >= bodyLeft &&
+            pointer.worldX <= bodyRight &&
+            pointer.worldY >= bodyTop &&
+            pointer.worldY <= bodyBottom;
+
+        // not moving
+        if (moved <= this.static && pointerInsideBody) {
+            this.body.setVelocity(0, 0);
+            this.body.setAllowGravity(false);
+            return;
+        }
+
+        // mouse moving
+        if (moved > this.static) {
+            this.prev.x = pointer.worldX;
+            this.prev.y = pointer.worldY;
+        }
+
+        // drag behavior
         const deltaX = targetX - centerX;
         const deltaY = targetY - centerY;
         const velocityX = Phaser.Math.Clamp(deltaX * this.dragSpeed, -this.dragMaxSpeed, this.dragMaxSpeed);
         const velocityY = Phaser.Math.Clamp(deltaY * this.dragSpeed, -this.dragMaxSpeed, this.dragMaxSpeed);
 
-        // collision
+        // block collisions
         if (this.body.blocked.left && velocityX < 0) this.body.setVelocityX(0); else this.body.setVelocityX(velocityX);
         if (this.body.blocked.up && velocityY < 0) this.body.setVelocityY(0);    else this.body.setVelocityY(velocityY);
         if (this.body.blocked.right && velocityX > 0) this.body.setVelocityX(0);
