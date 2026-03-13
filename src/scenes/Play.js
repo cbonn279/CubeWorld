@@ -1,9 +1,11 @@
 class Play extends Phaser.Scene {
-    constructor() { super({ key: 'Play' }); }
+    constructor() { 
+        super({ key: 'Play' }); 
+    }
 
     create() {
         // background music
-        this.music = this.sound.add('music', { loop: true, volume: 0.2 });
+        this.music = this.sound.add('music', { loop: true, volume: 0.1 });
         this.music.play();
 
         // wall
@@ -19,38 +21,61 @@ class Play extends Phaser.Scene {
         const b1 = new Block(this, 360, 300, 'F1', 'stick');
         const b2 = new Block(this, 660, 300, 'F2', 'stick');
         this.blocks.push(b1, b2);
+        b1.debugId = 'b1';
+        b2.debugId = 'b2';
 
-        // collision
-        this.blocks.forEach(b => this.physics.add.collider(b, this.table));
+        // table collision
+        this.blocks.forEach(b => {
+            this.physics.add.collider(b, this.table);
+        });
+
+        // block collisions
         for (let i = 0; i < this.blocks.length; i++) {
             for (let j = i + 1; j < this.blocks.length; j++) {
-                this.physics.add.collider(this.blocks[i], this.blocks[j]);
+                this.physics.add.collider(
+                    this.blocks[i],
+                    this.blocks[j],
+                    (a, b) => {
+                    }
+                );
             }
         }
 
-        // flip
+        // flip key
         this.input.keyboard.on('keydown-SPACE', () => {
             const held = this.blocks.find(b => b.held);
-            if (held) held.flip();
+            if (held) {
+                held.flip();
+            }
         });
 
-        // debug mode
+        // debug
         this.debugGraphics = this.add.graphics();
         this.debugGraphics.setVisible(false);
         this.debugOn = false;
 
         this.input.keyboard.on('keydown-D', () => {
             this.debugOn = !this.debugOn;
-            this.debugGraphics.clear();
             this.debugGraphics.setVisible(this.debugOn);
-            this.physics.world.drawDebug = this.debugOn;
-            this.physics.world.debugGraphic = this.debugOn ? this.debugGraphics : null;
-            if (!this.debugOn) this.debugGraphics.clear();
+
+            if (this.debugOn) {
+                this.physics.world.drawDebug = true;
+                this.physics.world.debugGraphic = this.debugGraphics;
+            } 
+            else {
+                this.physics.world.drawDebug = false;
+                this.physics.world.debugGraphic = null;
+                this.debugGraphics.clear();
+            }
         });
     }
 
     update(time, delta) {
         this.blocks.forEach(b => b.update(time, delta));
-        if (this.debugOn) this.debugGraphics.clear();
+
+        if (!this.debugOn) {
+            this.debugGraphics.clear();
+        }
+
     }
 }
