@@ -1,29 +1,54 @@
+// consts
+const SIDES = ['left','right','up','down'];
+const HORIZONTALS = new Set(['left:right','right:left']);
+const VERTICALS = new Set(['up:down','down:up']);
+
+function clearTimer(timer) {
+    if (timer) timer.remove(false);
+    return null;
+}
+
 class Block extends Phaser.GameObjects.Container {
     constructor(scene, x, y, frameKey, screenKey, Hitbox = {}) {
         super(scene, x, y);
         scene.add.existing(this);
 
-        // vars
+        // big boy vars
         this.landed = false;
+        this.animCycle = false; 
         this.touchSide = null;
+
+        // snap vars
         this.snapped = false;
         this.snapPartner = null;
         this.snapping = null;
-        this.isSnapMover = false;
+        this.mover = false;
         this.snapOffset = {
-            left:  { x: 35, y: 30 },
+            left:  { x: 35,  y: 30 },
             right: { x: 35,  y: 30 },
-            up:    { x: 0,   y: 0 },
-            down:  { x: 37,   y: 30 }
+            up:    { x: 0,  y: 0 },
+            down:  { x: 37, y: 30 }
         };
 
-        // create block container
+        // visit vars
+        this.visit = {
+            role: null, 
+            active: false,
+            partner: null,
+            axis: null,
+            phase: 0,
+            timer: null,
+            checkTimer: null,
+            returning: false
+        };
+
+        // block creation
         this.frame = scene.add.image(0, 0, frameKey).setOrigin(0.5);
         this.screen = scene.add.sprite(0, 0, screenKey).setOrigin(0.5);
         this.add([ this.frame, this.screen ]);
         this.setScale(3);
 
-        // physics
+        // physics body
         const sceneW = Math.round(this.frame.displayWidth);
         const sceneH = Math.round(this.frame.displayHeight);
         this.Scene = scene.add.zone(x, y, sceneW, sceneH);
@@ -38,7 +63,7 @@ class Block extends Phaser.GameObjects.Container {
         this.body.setDamping(true);
         this.body.setMaxVelocity(1000, 2000);
 
-        // hitbox
+        // hitboxes
         const hitboxes = {
             boxW: Hitbox.boxW ?? 2.8,
             boxH: Hitbox.boxH ?? 2.8,
@@ -52,7 +77,7 @@ class Block extends Phaser.GameObjects.Container {
         this.body.setSize(hitW, hitH);
         this.body.setOffset(offX, offY);
 
-        // dragging vars
+        // dragging
         this.dragSpeed = 10;
         this.dragMaxSpeed = 1200;
         this.dragDamp = 800;
@@ -64,15 +89,17 @@ class Block extends Phaser.GameObjects.Container {
         this.prev = { x: 0, y: 0 };
         this.static = 2;
 
-        // state & direction
+        // state machine
         this.sideDown = 0;
         this.stateMachine = new StateMachine('idle', {
             idle: new BlockIdleState(),
             flip: new BlockFlipState(),
             snap: new BlockSnapState(),
+            visit: new BlockVisitState(),
+            host: new BlockHostState(),
         }, [scene, this]);
 
-        // magnets
+        // create magnets
         this.magnetCreate(scene, sceneW, sceneH);
 
         // pointer logic
@@ -83,7 +110,7 @@ class Block extends Phaser.GameObjects.Container {
     }
 
     magnetCreate(scene, sceneW, sceneH) {
-        // sizings
+        // magnet vars
         const magnetOffset = 60;
         const horW = Math.round(sceneW * 0.18);
         const horH = Math.round(sceneH * 0.62);
@@ -92,43 +119,19 @@ class Block extends Phaser.GameObjects.Container {
         const halfW = sceneW * 0.5;
         const halfH = sceneH * 0.5;
 
+        // magnet sizing
         this.magnets = {
-            left:  { 
-                w: horW, 
-                h: horH,  
-                offx: -Math.round(halfW + horW * 0.5 + magnetOffset), 
-                offy: 0 
-            },
-
-            right: { 
-                w: horW, 
-                h: horH,  
-                offx:  Math.round(halfW + horW * 0.5 + magnetOffset), 
-                offy: 0 
-            },
-
-            up: {    
-                w: verW, 
-                h: verH,  
-                offx: 0, 
-                offy: -Math.round(halfH + verH * 0.5 + magnetOffset) 
-            },
-
-            down: {  
-                w: verW, 
-                h: verH,  
-                offx: 0, 
-                offy:  Math.round(halfH + verH * 0.5 + magnetOffset) 
-            },
+            left: { w: horW, h: horH, offx: -Math.round(halfW + horW * 0.5 + magnetOffset), offy: 0 },
+            right: { w: horW, h: horH, offx:  Math.round(halfW + horW * 0.5 + magnetOffset), offy: 0 },
+            up: { w: verW, h: verH, offx: 0, offy: -Math.round(halfH + verH * 0.5 + magnetOffset) },
+            down: { w: verW, h: verH, offx: 0, offy:  Math.round(halfH + verH * 0.5 + magnetOffset) },
         };
 
-        // create each
+        // magnet placement
         this.magnetZones = {};
-        this.magnetVisuals = {};  
-        for (const side of ['left','right','up','down']) {
+        this.magnetVisuals = {};
+        for (const side of SIDES) {
             const m = this.magnets[side];
-
-            // create zone
             const zone = scene.add.zone(this.x + m.offx, this.y + m.offy, m.w, m.h);
             scene.physics.world.enable(zone);
             zone.body.setAllowGravity(false);
@@ -140,7 +143,7 @@ class Block extends Phaser.GameObjects.Container {
             scene.magnetGroup.add(zone);
             this.magnetZones[side] = zone;
 
-            // create visual
+            // magnet visability
             const magx = Math.round(this.x + m.offx);
             const magy = Math.round(this.y + m.offy);
             const vis = scene.add.rectangle(magx, magy, m.w, m.h, 0xff00ff, 0.0)
@@ -151,18 +154,18 @@ class Block extends Phaser.GameObjects.Container {
             this.magnetVisuals[side] = vis;
         }
 
-        // check magnet collisions per side
+        // magnet collisions
         if (!scene.magnetCollision) {
             scene.physics.add.overlap(
                 scene.magnetGroup,
                 scene.magnetGroup,
-                (BA, BB) => {
-                    if (!BA || !BB || BA === BB) return;
-                    if (BA.myBlock === BB.myBlock) return;
-                    const A = BA.myBlock;
-                    const B = BB.myBlock;
-                    const sideA = BA.sidez;
-                    const sideB = BB.sidez;
+                (block1, block2) => {
+                    if (!block1 || !block2 || block1 === block2) return;
+                    if (block1.myBlock === block2.myBlock) return;
+                    const mag1 = block1.myBlock;
+                    const mag2 = block2.myBlock;
+                    const sideA = block1.sidez;
+                    const sideB = block2.sidez;
 
                     if (
                         (sideA === 'left'  && sideB === 'right') ||
@@ -170,11 +173,12 @@ class Block extends Phaser.GameObjects.Container {
                         (sideA === 'up'    && sideB === 'down')  ||
                         (sideA === 'down'  && sideB === 'up')
                     ){
-                        A.touchSide = sideA;
-                        B.touchSide = sideB;
-                        if (!A.held && !B.held && !A.snapped && !B.snapped) {
-                            A.snapping = B;
-                            B.snapping = A;
+                        mag1.touchSide = sideA;
+                        mag2.touchSide = sideB;
+                        
+                        if (!mag1.held && !mag2.held && !mag1.snapped && !mag2.snapped) {
+                            mag1.snapping = mag2;
+                            mag2.snapping = mag1;
                         }
                     }
                 }
@@ -191,7 +195,6 @@ class Block extends Phaser.GameObjects.Container {
 
     magnetAdd(side) {
         const m = this.magnets[side];
-        // center of mags
         const worldX = this.x + m.offx;
         const worldY = this.y + m.offy;
         const x = Math.round(worldX - (m.w / 2));
@@ -202,40 +205,33 @@ class Block extends Phaser.GameObjects.Container {
     update(time, delta) {
         this.stateMachine.step();
 
-        // dragging input
         if (this.held) {
             const active = this.scene.input.activePointer;
             this.drag(active);
         }
         this.bodyFollow();
 
-        for (const side of ['left','right','up','down']) {
+        // refresh magnets
+        for (const side of SIDES) {
             const m = this.magnets[side];
             const zone = this.magnetZones[side];
             const vis = this.magnetVisuals[side];
-
             if (!zone) continue;
-
-            // world position for mag zone
             const magx = Math.round(this.x + m.offx);
             const magy = Math.round(this.y + m.offy);
             zone.setPosition(magx, magy);
-
-            // update mag body
             if (zone.body) {
                 zone.body.x = magx - (zone.width / 2);
                 zone.body.y = magy - (zone.height / 2);
                 if (zone.body.updateFromGameObject) zone.body.updateFromGameObject();
             }
-
-            // update visual
             if (vis) {
                 vis.setPosition(magx, magy);
                 vis.setVisible(this.scene.debugOn);
             }
         }
 
-        // drop sound
+        // drop sound 
         if (!this.held && this.body.blocked.down) {
             if (!this.landed) {
                 this.scene.sound.play('drop', { volume: 1 });
@@ -246,43 +242,35 @@ class Block extends Phaser.GameObjects.Container {
     }
 
     unsnap() {
-         if (!this.snapped) return;
+        if (!this.snapped) return;
 
+        // unsnap sound
         this.scene.sound.play('unsnap', { volume: 0.4 });
 
         const partner = this.snapPartner;
 
-        // restore vars/physics
-        const restore = (b) => {
-            if (!b) return;
-            b.snapped = false;
-            b.snapPartner = null;
-            b.snapping = null;
-            b.isSnapMover = false;
+        // reset snap vars
+        this.snapped = false;
+        this.snapPartner = null;
+        this.snapping = null;
+        this.mover = false;
 
-            if (b.body) {
-                b.body.setImmovable(false);
-                b.body.setAllowGravity(true);
-                b.body.setVelocity(0,0);
-            }
-
-            if (b.stateMachine && b.stateMachine.state !== 'idle') {
-                b.stateMachine.transition('idle');
-            }
-        };
-        restore(this);
-        restore(partner);
+        if (partner && partner.snapPartner === this) {
+            partner.snapped = false;
+            partner.snapPartner = null;
+            partner.snapping = null;
+            partner.mover = false;
+        }
     }
 
     pickUp(pointer) {
         if (this.held) return;
-        if (this.snapped && this.snapPartner) {
-            this.unsnap();
-        }
+        if (this.snapped) this.unsnap();
 
         this.held = true;
         this.landed = false;
 
+        // start dragging
         this.dragOffset.x = this.x - pointer.worldX;
         this.dragOffset.y = this.y - pointer.worldY;
 
@@ -302,11 +290,13 @@ class Block extends Phaser.GameObjects.Container {
     drag(pointer) {
         if (!this.held) return;
 
+        // pointer target
         const targetX = pointer.worldX + this.dragOffset.x;
         const targetY = pointer.worldY + this.dragOffset.y;
         const centerX = this.body.position.x + (this.body.width * 0.5) + (this.body.offset.x);
         const centerY = this.body.position.y + (this.body.height * 0.5) + (this.body.offset.y);
 
+        // pointer follow
         const moved = Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, this.prev.x, this.prev.y);
 
         const bodyLeft = this.body.position.x + (this.body.offset ? this.body.offset.x : 0);
@@ -331,19 +321,20 @@ class Block extends Phaser.GameObjects.Container {
             this.prev.y = pointer.worldY;
         }
 
-        const deltaX = targetX - centerX;
-        const deltaY = targetY - centerY;
-        const velocityX = Phaser.Math.Clamp(deltaX * this.dragSpeed, -this.dragMaxSpeed, this.dragMaxSpeed);
-        const velocityY = Phaser.Math.Clamp(deltaY * this.dragSpeed, -this.dragMaxSpeed, this.dragMaxSpeed);
+        // pointer follow speed
+        let velocityX = Phaser.Math.Clamp((targetX - centerX) * this.dragSpeed, -this.dragMaxSpeed, this.dragMaxSpeed);
+        let velocityY = Phaser.Math.Clamp((targetY - centerY) * this.dragSpeed, -this.dragMaxSpeed, this.dragMaxSpeed);
 
-        if (this.body.blocked.left && velocityX < 0) this.body.setVelocityX(0); else this.body.setVelocityX(velocityX);
-        if (this.body.blocked.up && velocityY < 0) this.body.setVelocityY(0); else this.body.setVelocityY(velocityY);
-        if (this.body.blocked.right && velocityX > 0) this.body.setVelocityX(0);
-        if (this.body.blocked.down && velocityY > 0) this.body.setVelocityY(0);
+        if ((this.body.blocked.left && velocityX < 0) || (this.body.blocked.right && velocityX > 0)) velocityX = 0;
+        if ((this.body.blocked.up && velocityY < 0) || (this.body.blocked.down && velocityY > 0)) velocityY = 0;
+
+        this.body.setVelocity(velocityX, velocityY);
     }
 
     drop() {
         if (!this.held) return;
+
+        // reset physics
         this.held = false;
         this.snapping = null;
         this.body.setAllowGravity(true);
@@ -353,6 +344,8 @@ class Block extends Phaser.GameObjects.Container {
 
     flip() {
         if (!this.held) return;
+        if (this.animCycle) return;
+        if (this.stateMachine.state !== 'idle') return;
         this.stateMachine.transition('flip');
     }
 
@@ -364,11 +357,13 @@ class Block extends Phaser.GameObjects.Container {
     }
 }
 
+// state machine classes
 class BlockIdleState extends State {
     enter(scene, block) {
         block.screen.play('Idle1', true);
 
-        if (block.idleTimer) { block.idleTimer.remove(); block.idleTimer = null; }
+        // timer for idle anims
+        block.idleTimer = clearTimer(block.idleTimer);
         block.idleTimer = scene.time.addEvent({
             delay: 10000,
             loop: true,
@@ -384,139 +379,415 @@ class BlockIdleState extends State {
     }
 
     execute(scene, block) {
+        if (block.animCycle) return;
+
+        // snapping resets
         const other = block.snapping;
         if (!other) return;
-
         if (block.held || other.held) {
             block.snapping = null;
             other.snapping = null;
             return;
         }
-
         if (!block.touchSide || !other.touchSide) {
             block.snapping = null;
             return;
         }
-
         if (block.snapped || other.snapped) {
             block.snapping = null;
             return;
         }
 
+        // side collision
         const pair = `${block.touchSide}:${other.touchSide}`;
-        const horizontalPairs = new Set(['left:right', 'right:left']);
-        const verticalPairs = new Set(['up:down', 'down:up']);
-
         let axis = null;
-        if (horizontalPairs.has(pair)) axis = 'h';
-        if (verticalPairs.has(pair)) axis = 'v';
+        if (HORIZONTALS.has(pair)) axis = 'h';
+        if (VERTICALS.has(pair)) axis = 'v';
         if (!axis) return;
 
-        // higher block moves
-        let mover, stationary;
+        // mover/nover (non mover) selection
+        let mover, nover;
         if (block.y < other.y) {
             mover = block;
-            stationary = other;
+            nover = other;
         } else {
             mover = other;
-            stationary = block;
+            nover = block;
         }
 
-        if (!mover || !stationary) return;
+        // mover/nover vars
+        if (!mover || !nover) return;
         const moverSide = mover.touchSide;
-        const statSide  = stationary.touchSide;
+        const noverSide  = nover.touchSide;
         const moverMag = mover.magnetCoords(moverSide);
-        const statMag  = stationary.magnetCoords(statSide);
+        const noverMag  = nover.magnetCoords(noverSide);
         const moverOffset = mover.snapOffset[moverSide] || {x:0,y:0};
-        const dx = (statMag.x + moverOffset.x) - moverMag.x;
-        const dy = (statMag.y + moverOffset.y) - moverMag.y;
+        const dx = (noverMag.x + moverOffset.x) - moverMag.x;
+        const dy = (noverMag.y + moverOffset.y) - moverMag.y;
 
-        // connect blocks
+        // mover/nover snap transition
         mover.snapAlign = { dx, dy };
-        mover.snapPartner = stationary;
-        stationary.snapPartner = mover;
+        mover.snapPartner = nover;
+        nover.snapPartner = mover;
 
-        mover.isSnapMover = true;
-        stationary.isSnapMover = false;
+        mover.mover = true;
+        nover.mover = false;
         mover.snapping = null;
-        stationary.snapping = null;
-        
-        // state switch
-        const stateName = 'snap';
-        if (!stateName) return;
-        mover.stateMachine.transition(stateName);
-        stationary.stateMachine.transition(stateName);
+        nover.snapping = null;
+
+        mover.stateMachine.transition('snap');
+        nover.stateMachine.transition('snap');
     }
 
     exit(scene, block) {
-        if (block.idleTimer) { block.idleTimer.remove(); block.idleTimer = null; }
+        block.idleTimer = clearTimer(block.idleTimer);
     }
 }
 
 class BlockFlipState extends State {
     enter(scene, block) {
+        // flip block
         scene.sound.play('flip', { volume: 0.4 });
-
-        // rotate frame w/out screen
         block.angle -= 90;
         block.screen.angle += 90;
-
         block.sideDown = (block.sideDown + 1) % 4;
         block.screen.play('Flip');
         block.screen.once('animationcomplete', () => this.stateMachine.transition('idle'));
     }
-    execute(scene, block) {}
-    exit(scene, block) {}
+    execute() {}
+    exit() {}
 }
 
 class BlockSnapState extends State {
+    playAnims(sprite, key, loop = false) {
+        if (!sprite || !sprite.anims) return;
+        const anim = sprite.anims.current;
+        if (!anim || anim.key !== key) {
+            sprite.play(key);
+            if (loop && sprite.anims.current) sprite.anims.current.repeat = -1;
+        }
+    }
 
     enter(scene, block) {
-
+        // return if not snapped
         const other = block.snapPartner;
-
         if (!other || !other.body) {
             block.stateMachine.transition('idle');
             return;
         }
 
-        const body = block.body;
-
-        if (block.isSnapMover && block.snapAlign) {
-
+        // snap positioning
+        if (block.mover && block.snapAlign) {
             const dx = block.snapAlign.dx;
             const dy = block.snapAlign.dy;
-
-            const targetX = body.position.x + dx;
-            const targetY = body.position.y + dy;
-
-            body.reset(
-                Math.round(targetX),
-                Math.round(targetY)
-            );
+            const targetX = Math.round(block.body.position.x + dx);
+            const targetY = Math.round(block.body.position.y + dy);
+            block.body.reset(targetX, targetY);
             block.snapAlign = null;
+        }
+        block.snapped = true;
+        if (block.mover) scene.sound.play('snap', { volume: 0.2 });
 
+        // side categorization
+        const pair = `${block.touchSide}:${other.touchSide}`;
+        if (pair === 'left:right' || pair === 'right:left') {
+            block.visit.axis = 'horizontal';
+            other.visit.axis = 'horizontal';
+        } else if (pair === 'up:down' || pair === 'down:up') {
+            block.visit.axis = 'vertical';
+            other.visit.axis = 'vertical';
+        } else {
+            block.visit.axis = null;
+            other.visit.axis = null;
         }
 
-        body.setVelocity(0,0);
-        body.setImmovable(true);
-        body.setAllowGravity(false);
+        // deciding visit
+        if (block.visit.axis === 'horizontal') {
+            if (block.x > other.x) { block.visit.role = 'visit'; other.visit.role = 'host'; }
+            else { block.visit.role = 'host'; other.visit.role = 'visit'; }
+        } else if (block.visit.axis === 'vertical') {
+            if (block.y < other.y) { block.visit.role = 'visit'; other.visit.role = 'host'; }
+            else { block.visit.role = 'host'; other.visit.role = 'visit'; }
+        } else {
+            if (block.touchSide === 'right' || block.touchSide === 'up') { block.visit.role = 'visit'; other.visit.role = 'host'; }
+            else { block.visit.role = 'host'; other.visit.role = 'visit'; }
+        }
 
-        block.snapped = true;
-        if (block.isSnapMover) {
-            scene.sound.play('snap', { volume: 0.2 });
+        // start 3s timer before visiting
+        if (block.visit.role === 'visit') {
+            block.visit.timer = clearTimer(block.visit.timer);
+            block.visit.phase = 0;
+
+            block.visit.timer = scene.time.delayedCall(3000, () => {
+                if (!block.snapped || block.visit.role !== 'visit') return;
+                const host = block.snapPartner;
+                if (!host) return;
+
+                block.visit.active = true;
+                block.visit.partner = host;
+                host.visit.active = true;
+                host.visit.partner = block;
+
+                block.animCycle = true;
+                host.animCycle = true;
+
+                block.stateMachine.transition('visit');
+                host.stateMachine.transition('host');
+            });
+        }
+
+        if (block.visit.role === 'host' && block.stateMachine.state === 'snap') {
+            this.playAnims(block.screen, 'Idle1', true);
         }
     }
 
     execute(scene, block) {
-
-        if (!block.snapPartner || !block.snapped) {
+        if (!block.snapped && !block.visit.active) {
             block.stateMachine.transition('idle');
             return;
         }
-
-        block.body.setVelocity(0,0);
-        block.body.setAllowGravity(false);
-        block.body.setImmovable(true);
     }
+
+    exit(scene, block) {
+        block.visit.timer = clearTimer(block.visit.timer);
+        block.visit.phase = 0;
+    }
+}
+
+class BlockVisitState extends State {
+    enter(scene, block) {
+        if (!block.visit.active || !block.visit.partner) {
+            block.visit.active = false;
+            block.animCycle = false;
+            return block.stateMachine.transition('idle');
+        }
+
+        block.visit.phase = 1;
+        this.nextAnim(scene, block);
+    }
+
+    execute() {}
+
+    exit(scene, block) {
+        // clear timers/vars
+        block.phase1 = false;
+        if (block.visit.partner) block.visit.partner.phase1 = false;
+        block.visit.checkTimer = clearTimer(block.visit.checkTimer);
+        block.animCycle = false;
+        if (block.visit.active) {
+            block.visit.active = false;
+            const p = block.visit.partner;
+            if (p) { p.visit.active = false; p.visit.partner = null; }
+            block.visit.partner = null;
+        }
+        block.visit.phase = 0;
+        block.visit.returning = false;
+    }
+
+    // animation manager
+    callAnims(sprite, key, loop = false) {
+        if (!sprite || !sprite.anims) return;
+        const anim = sprite.anims.current;
+        if (anim && anim.key === key) return;
+        sprite.play(key);
+        if (loop && sprite.anims.current) sprite.anims.current.repeat = -1;
+    }
+
+    // finish one anim at a time
+    singleAnim(sprite, key, handler) {
+        if (!sprite || !sprite.on) return;
+        const anim = (anim) => {
+            if (!anim || anim.key !== key) return;
+            sprite.off('animationcomplete', anim);
+            handler();
+        };
+        sprite.on('animationcomplete', anim);
+    }
+
+    nextAnim(scene, block) {
+        const host = block.visit.partner;
+        if (!host) return this.return(scene, block);
+
+        switch (block.visit.phase) {
+            case 1: // wave anim
+                if (block.visit.axis === 'horizontal') {
+                    let visitorDone = false;
+                    let hostDone = false;
+                    const checkDone = () => {
+                        if (!visitorDone || !hostDone) return;
+                        this.callAnims(block.screen, 'Idle1');
+                        this.callAnims(host.screen, 'Idle1');
+                        scene.time.delayedCall(200, () => {
+                            if (!block.visit.active) return;
+                            block.visit.phase = 2;
+                            this.nextAnim(scene, block);
+                        });
+                    };
+
+                    if (!block.phase1) {
+                        block.phase1 = true;
+                        this.singleAnim(block.screen, 'WaveR', () => {
+                            block.phase1 = false;
+                            visitorDone = true;
+                            checkDone();
+                        });
+                    }
+
+                    if (!host.phase1) {
+                        host.phase1 = true;
+                        this.singleAnim(host.screen, 'WaveL', () => {
+                            host.phase1 = false;
+                            hostDone = true;
+                            checkDone();
+                        });
+                    }
+
+                    // start waves
+                    block.screen.play('WaveR');
+                    host.screen.play('WaveL');
+                } else {
+                    block.visit.phase = 2;
+                    this.nextAnim(scene, block);
+                }
+                break;
+
+            case 2: // visit leaves anims
+                if (block.visit.axis === 'horizontal') this.callAnims(block.screen, 'LeaveR');
+                else this.callAnims(block.screen, 'LeaveU');
+
+                block.screen.once('animationcomplete', () => {
+                    if (!block.visit.active) return;
+                    block.visit.phase = 3;
+                    this.nextAnim(scene, block);
+                });
+                break;
+
+            case 3: // visit closes anims
+                this.callAnims(block.screen, 'Close');
+                block.screen.once('animationcomplete', () => {
+                    if (!block.visit.active) return;
+                    this.callAnims(block.screen, 'Closed', true);
+                    block.visit.phase = 4;
+                    this.nextAnim(scene, block);
+                });
+                break;
+
+            case 4: // host arrives anims
+                if (block.visit.axis === 'horizontal') this.callAnims(host.screen, 'ArriveL');
+                else this.callAnims(host.screen, 'ArriveD');
+
+                host.screen.once('animationcomplete', () => {
+                    if (!block.visit.active) return;
+                    block.visit.phase = 5;
+                    this.nextAnim(scene, block);
+                });
+                break;
+
+            case 5: // idle together anims
+                if (block.visit.returning) return;
+                this.callAnims(host.screen, 'IdleT', true);
+                this.callAnims(block.screen, 'Closed', true);
+
+                block.visit.checkTimer = clearTimer(block.visit.checkTimer);
+
+                // unsnapped check
+                block.visit.checkTimer = scene.time.addEvent({
+                    delay: 200,
+                    loop: true,
+                    callback: () => {
+                        if (!block.visit.active) {
+                            block.visit.checkTimer = clearTimer(block.visit.checkTimer);
+                            return;
+                        }
+
+                        const partner = block.visit.partner;
+                        const stillSnappedSameSide = partner &&
+                            partner.snapped &&
+                            block.snapped &&
+                            partner.touchSide && block.touchSide &&
+                            (
+                                (block.touchSide === 'left'  && partner.touchSide === 'right') ||
+                                (block.touchSide === 'right' && partner.touchSide === 'left')  ||
+                                (block.touchSide === 'up'    && partner.touchSide === 'down')  ||
+                                (block.touchSide === 'down'  && partner.touchSide === 'up')
+                            );
+
+                        if (stillSnappedSameSide) {
+                            return; 
+                        } else {
+                            block.visit.checkTimer = clearTimer(block.visit.checkTimer);
+                            block.visit.returning = true;
+                            this.returning(scene, block);
+                        }
+                    }
+                });
+
+                // 20s fallback return
+                scene.time.delayedCall(20000, () => {
+                    if (!block.visit.active) return;
+                    block.visit.returning = true;
+                    block.visit.checkTimer = clearTimer(block.visit.checkTimer);
+                    this.returning(scene, block);
+                });
+                break;
+
+            default:
+                this.return(scene, block);
+                break;
+        }
+    }
+
+    // return anims
+    returning(scene, block) {
+        const host = block.visit.partner;
+        if (!host) return this.return(scene, block);
+
+        // host leaves anims
+        if (block.visit.axis === 'horizontal') host.screen.play('LeaveL');
+        else host.screen.play('LeaveD');
+
+        host.screen.once('animationcomplete', () => {
+            if (host.stateMachine && host.stateMachine.state !== 'idle') host.stateMachine.transition('idle');
+
+            // visit returns anims
+            block.screen.play('Open');
+            block.screen.once('animationcomplete', () => {
+                if (block.visit.axis === 'horizontal') block.screen.play('ArriveR');
+                else block.screen.play('ArriveU');
+
+                block.screen.once('animationcomplete', () => {
+                    this.return(scene, block);
+                });
+            });
+        });
+    }
+
+    // finish return and reset vars
+    return(scene, block) {
+        const host = block.visit.partner;
+        block.visit.checkTimer = clearTimer(block.visit.checkTimer);
+        block.visit.active = false;
+        block.animCycle = false;
+        block.visit.phase = 0;
+        block.visit.returning = false;
+
+        if (host) {
+            host.visit.active = false;
+            host.visit.partner = null;
+            host.visit.phase = 0;
+            host.animCycle = false;
+            if (host.stateMachine && host.stateMachine.state !== 'idle') host.stateMachine.transition('idle');
+        }
+
+        block.visit.partner = null;
+
+        if (block.stateMachine && block.stateMachine.state !== 'idle') block.stateMachine.transition('idle');
+    }
+}
+
+
+class BlockHostState extends State {
+    enter(scene, block) {}
+    execute() {}
+    exit() {}
 }

@@ -56,13 +56,13 @@ class Load extends Phaser.Scene {
         })
         this.anims.create({
             key: 'LeaveR',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 34, end: 47 }),
         })
         this.anims.create({
             key: 'Close',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 48, end: 56 }),
         })
@@ -74,37 +74,37 @@ class Load extends Phaser.Scene {
         })
         this.anims.create({
             key: 'Open',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 56, end: 64 }),
         })
         this.anims.create({
             key: 'ArriveL',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 65, end: 73 }),
         })
         this.anims.create({
             key: 'LeaveL',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 73, end: 79 }),
         })
         this.anims.create({
             key: 'ArriveR',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 80, end: 85 }),
         })
         this.anims.create({
             key: 'LeaveU',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 86, end: 94 }),
         })
         this.anims.create({
             key: 'ArriveD',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 95, end: 106 }),
         })
@@ -116,13 +116,13 @@ class Load extends Phaser.Scene {
         })
         this.anims.create({
             key: 'LeaveD',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 107, end: 114 }),
         })
         this.anims.create({
             key: 'ArriveU',
-            frameRate: 6,
+            frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 115, end: 122 }),
         })
