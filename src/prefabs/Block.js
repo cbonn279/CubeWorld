@@ -13,7 +13,7 @@ class Block extends Phaser.GameObjects.Container {
         super(scene, x, y);
         scene.add.existing(this);
 
-        // big boy vars
+        // flag vars
         this.landed = false;
         this.animCycle = false; 
         this.touchSide = null;

@@ -19,6 +19,9 @@ class Load extends Phaser.Scene {
         this.load.audio('snap', 'assets/snap.wav');
         this.load.audio('unsnap', 'assets/unsnap.wav');
         this.load.audio('music', 'assets/music.mp3');
+
+        // text
+        this.load.font('Pixel', '/assets/pixel.ttf', 'truetype')
     }
 
     create() {
