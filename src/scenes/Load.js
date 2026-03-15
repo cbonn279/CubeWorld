@@ -5,8 +5,13 @@ class Load extends Phaser.Scene {
         // images
         this.load.image('F1', 'assets/frame1.png');
         this.load.image('F2', 'assets/frame2.png');
-        this.load.image('table', 'assets/table.png');
-        this.load.image('wall', 'assets/wall.jpg');
+        this.load.image('floor', 'assets/floor.png');
+        this.load.image('garagedoor', 'assets/garagedoor.png');
+        this.load.image('On', 'assets/On.png');
+        this.load.image('Onish', 'assets/Onish.png');
+        this.load.image('Off', 'assets/Off.png');
+        this.load.image('mail', 'assets/mail.png');
+
 
         this.load.spritesheet('stick', 'assets/Stickman.png', {
              frameWidth: 36, 
