@@ -36,35 +36,48 @@ class Message extends Phaser.Scene {
             align: 'center'
         }).setOrigin(0.5).setDepth(1001);
 
-        // typing function
-        const typeText = (textObj, message, charDelay = 40, finish = null) => {
+        // play notif 
+        this.sound.play('notif', { volume: 0.9 });
+
+        // typing function 
+        const typeText = (textObj, message, charDelay = 40, finish = null, perCharCallback = null) => {
             textObj.text = '';
             let chars = 0;
             const speed = this.time.addEvent({
                 delay: charDelay,
-                repeat: message.length - 1,
+                repeat: Math.max(0, message.length - 1),
                 callback: () => {
-                    textObj.text += message[chars++] ;
+                    const ch = message[chars++];
+                    textObj.text += ch;
+
+                    // only play type sound for characters
+                    if (/[A-Za-z0-9]/.test(ch)) {
+                        this.sound.play('type', { volume: 0.08 });
+                    }
+
+                    if (perCharCallback) perCharCallback(ch);
+
                     if (chars >= message.length && finish) finish();
                 }
             });
             return speed;
         };
 
-        // black screen fade out
+        // black screen fade
         const fading = 1200;
         this.tweens.add({
             targets: black,
             alpha: 0,
             duration: fading,
             ease: 'Quad.easeOut',
+            onComplete: () => {
 
-            // after fade type text
-            finish: () => {
                 const firstLine = "you got mail...";
-                typeText(this.titleText, firstLine, 60, () => {
+                const mailSfx = this.sound.add('mail', { volume: 0.9 });
 
-                    // blinking text
+                // start typing
+                mailSfx.play();
+                typeText(this.titleText, firstLine, 60, () => {
                     this.clickText.text = 'Click to Open';
                     this.clickText.setAlpha(1);
                     this.clickBlink = this.tweens.add({
@@ -76,8 +89,12 @@ class Message extends Phaser.Scene {
                         repeat: -1
                     });
 
-                    // clear text when clicked
+                    // wait for click 
                     this.input.once('pointerdown', () => {
+                        // click sound and music play
+                        this.sound.play('click', { volume: 0.6 });
+                        this.chill = this.sound.add('chill', { loop: true, volume: 0.05 });
+                        this.chill.play();
                         if (this.clickBlink) this.clickBlink.stop();
                         this.titleText.destroy();
                         this.clickText.destroy();
@@ -94,16 +111,20 @@ class Message extends Phaser.Scene {
                             scale: shrink,
                             duration: 450,
                             ease: 'Cubic.easeInOut',
-                            finish: () => {
+                            onComplete: () => {
 
-                                const message = 
+                                const message =
 `Gina... Thank you for playing my games...
-I work hard and the most exciting part is watching 
-you play them...
-Your the best sister ever...
 
-      From
-Your favorite brother...`;
+I work hard and the most exciting part is watching
+you play them...
+
+You're the best sister ever...
+
+
+From
+Your favorite brother...
+`;
 
                                 // place message text
                                 const textY = configH * 0.18;
@@ -117,7 +138,7 @@ Your favorite brother...`;
                                 .setOrigin(0.5, 0)
                                 .setDepth(1001);
 
-                                // type message
+                                // type final message
                                 typeText(this.messageText, message, 100, () => {
                                 });
                             }

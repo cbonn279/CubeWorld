@@ -24,8 +24,18 @@ class Start extends Phaser.Scene {
             repeat: -1
         });
 
+        // play music
+        this.chill = this.sound.add('chill', { loop: true, volume: 0.05 });
+        this.chill.play();
+
         // click to start
         this.input.once('pointerdown', () => {
+            // click sound
+            this.sound.play('click', { volume: 0.6 });
+
+            // stop music
+            if (this.chill && this.chill.isPlaying) this.chill.stop();
+
             this.intro();
         });
     }
@@ -61,33 +71,48 @@ class Start extends Phaser.Scene {
         const fadeStart = Math.max(0, fade * character);
         const fadeTime = Math.max(1, fadeSpeed - fadeStart); 
 
-        // intro text typing effect
+        // intro text typing
         let chars = 0;
         const typing = this.time.addEvent({
             delay: character,
             repeat: message.length - 1,
             callback: () => {
-                dialog.text += message[chars++];
+                const ch = message[chars++];
+                dialog.text += ch;
+
+                // only play type sound for characters
+                if (/[A-Za-z0-9]/.test(ch)) {
+                    this.sound.play('type', { volume: 0.08 });
+                }
             }
         });
 
         // white screen fade
-        this.tweens.add({
+        const shockSfx = this.sound.add('shock', { volume: 0.6 });
+
+        overlayTween = this.tweens.add({
             targets: overlay,
             alpha: 1,
             duration: fadeTime,
             delay: fadeStart,
             ease: 'Linear',
+            onStart: () => {
+                shockSfx.play();
+            },
             onComplete: () => {
-                if (typing && !typing.started) {
+                if (typing) {
                     typing.remove(false);
                     dialog.text = message;
                 }
 
-                // transition to play
-                this.time.delayedCall(1000, () => {
-                    this.scene.start('Play');
-                });
+                // play sound/fade before scene transition
+                if (shockSfx.isPlaying) {
+                    shockSfx.once('complete', () => {
+                        this.time.delayedCall(0, () => this.scene.start('Play'));
+                    });
+                } else {
+                    this.time.delayedCall(1000, () => this.scene.start('Play'));
+                }
             }
         });
     }

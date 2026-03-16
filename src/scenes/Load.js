@@ -23,7 +23,15 @@ class Load extends Phaser.Scene {
         this.load.audio('flip', 'assets/flip.wav');
         this.load.audio('snap', 'assets/snap.wav');
         this.load.audio('unsnap', 'assets/unsnap.wav');
+        this.load.audio('click', 'assets/click.wav');
+        this.load.audio('fade', 'assets/fade.wav');
+        this.load.audio('mail', 'assets/mail.wav');
+        this.load.audio('notif', 'assets/notif.wav');
+        this.load.audio('shock', 'assets/shock.wav');
+        this.load.audio('type', 'assets/type.wav');
+        this.load.audio('chill', 'assets/chill.mp3');
         this.load.audio('music', 'assets/music.mp3');
+
 
         // text
         this.load.font('Pixel', '/assets/pixel.ttf', 'truetype')

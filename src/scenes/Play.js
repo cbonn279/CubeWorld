@@ -64,7 +64,7 @@ class Play extends Phaser.Scene {
         this.powerButton.setScale(3); 
         this.powerButton.setInteractive({ useHandCursor: true });
 
-        // ccreate black screen
+        // create black screen
         const configW = this.sys.game.config.width;
         const configH = this.sys.game.config.height;
         this.blackScreen = this.add.rectangle(configW/2, configH/2, configW, configH, 0x000000)
@@ -85,6 +85,7 @@ class Play extends Phaser.Scene {
         this.powerButton.on('pointerdown', (pointer) => {
             if (this.power === 'off') return;
             if (this.holding()) return; 
+            this.sound.play('click', { volume: 0.6 });
             if (!this.menuOpen) this.Menu();
         });
     }
@@ -109,7 +110,7 @@ class Play extends Phaser.Scene {
         const configW = this.sys.game.config.width;
         const configH = this.sys.game.config.height;
 
-        // menu overrides blocks
+        // menu overrides
         this.holdable(false);
 
         // backdrop 
@@ -130,7 +131,7 @@ class Play extends Phaser.Scene {
             .setStrokeStyle(4, 0x2b2b2b)
             .setDepth(1501);
 
-        // Menus text
+        // menu text
         const menuText = this.add.text(menuX, menuY - menuH*0.22, "Are we done playing?", {
             font: '22px Pixel',
             color: '#000000',
@@ -172,42 +173,62 @@ class Play extends Phaser.Scene {
             highlight.setVisible(false);
         };
 
+        // create options
         doneText.on('pointerover', () => highlighted(doneText));
         doneText.on('pointerout', () => normal(doneText));
         notYetText.on('pointerover', () => highlighted(notYetText));
         notYetText.on('pointerout', () => normal(notYetText));
 
         notYetText.on('pointerdown', () => {
+            this.sound.play('click', { volume: 0.6 });
             this.MenuOff();
         });
 
         doneText.on('pointerdown', () => {
+            this.sound.play('click', { volume: 0.6 });
+
             this.MenuOff();
             this.power = 'off';
             this.powerButton.setTexture('Off');
 
             if (this.music && this.music.isPlaying) this.music.stop();
 
-            // black screen fade
+            // black screen fade (play fade.wav and ensure we wait for it if it lasts longer than the visual)
             this.powerButton.setDepth(this.blackScreen.depth + 1);
+
+            const fadeSfx = this.sound.add('fade', { volume: 0.9 });
+            fadeSfx.play();
+
             this.tweens.add({
                 targets: this.blackScreen,
                 alpha: 1,
                 duration: 2000,
                 ease: 'Quad.easeInOut',
                 onComplete: () => {
-
-                    // button fade
-                    this.tweens.add({
-                        targets: this.powerButton,
-                        alpha: 0,
-                        duration: 1200,
-                        ease: 'Quad.easeOut',
-                        onComplete: () => {
-                            this.scene.start('Message');
-                        }
-                    });
-
+                    if (fadeSfx.isPlaying) {
+                        fadeSfx.once('complete', () => {
+                            // THEN fade the button away
+                            this.tweens.add({
+                                targets: this.powerButton,
+                                alpha: 0,
+                                duration: 1200,
+                                ease: 'Quad.easeOut',
+                                onComplete: () => {
+                                    this.scene.start('Message');
+                                }
+                            });
+                        });
+                    } else {
+                        this.tweens.add({
+                            targets: this.powerButton,
+                            alpha: 0,
+                            duration: 1200,
+                            ease: 'Quad.easeOut',
+                            onComplete: () => {
+                                this.scene.start('Message');
+                            }
+                        });
+                    }
                 }
             });
         });
