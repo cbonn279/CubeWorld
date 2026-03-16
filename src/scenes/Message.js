@@ -2,6 +2,8 @@ class Message extends Phaser.Scene {
     constructor() { super({ key: 'Message' }); }
 
     create() {
+
+        // config vars
         const configW = this.sys.game.config.width;
         const configH = this.sys.game.config.height;
         const configX = configW / 2;
@@ -112,7 +114,7 @@ class Message extends Phaser.Scene {
                             duration: 450,
                             ease: 'Cubic.easeInOut',
                             onComplete: () => {
-
+                                this.mail.setTexture('mailOpen');
                                 const message =
 `Gina... Thank you for playing my games...
 

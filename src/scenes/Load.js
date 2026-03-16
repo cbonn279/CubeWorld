@@ -11,6 +11,7 @@ class Load extends Phaser.Scene {
         this.load.image('Onish', 'assets/Onish.png');
         this.load.image('Off', 'assets/Off.png');
         this.load.image('mail', 'assets/mail.png');
+        this.load.image('mailOpen', 'assets/mailOpen.png');
 
 
         this.load.spritesheet('stick', 'assets/Stickman.png', {
@@ -141,6 +142,37 @@ class Load extends Phaser.Scene {
             frameRate: 8,
             repeat: 0,
             frames: this.anims.generateFrameNumbers('stick', { start: 115, end: 122 }),
+        })
+        this.anims.create({
+            key: 'Five',
+            frameRate: 8,
+            repeat: 0,
+            frames: this.anims.generateFrameNumbers('stick', { start: 123, end: 132 }),
+        })
+        this.anims.create({
+            key: 'Boogie',
+            frameRate: 12,
+            repeat: 0,
+            frames: this.anims.generateFrameNumbers('stick', { start: 132, end: 160 }),
+        })
+        this.anims.create({
+            key: 'Wiggle',
+            frameRate: 8,
+            repeat: 0,
+            yoyo: true,
+            frames: this.anims.generateFrameNumbers('stick', { start: 160, end: 174 }),
+        })
+        this.anims.create({
+            key: 'Homer',
+            frameRate: 8,
+            repeat: 0,
+            frames: this.anims.generateFrameNumbers('stick', { start: 175, end: 202 }),
+        })
+        this.anims.create({
+            key: 'Hit',
+            frameRate: 8,
+            repeat: 0,
+            frames: this.anims.generateFrameNumbers('stick', { start: 203, end: 218 }),
         })
 
         this.scene.start('Start');

@@ -2,7 +2,6 @@ class Start extends Phaser.Scene {
     constructor() { super({ key: 'Start' }); }
 
     create() {
-
         // title text
         this.titleText = this.add.text(512, 260, 'Cube World', {
             font: '50px Pixel',
@@ -48,9 +47,33 @@ class Start extends Phaser.Scene {
         if (this.titleText) this.titleText.destroy();
         if (this.startText) this.startText.destroy();
 
+        // typing the text
+        const typeText = (textObj, message, charDelay = 40, finish = null, perCharCallback = null) => {
+            textObj.text = '';
+            let chars = 0;
+            const speed = this.time.addEvent({
+                delay: charDelay,
+                repeat: Math.max(0, message.length - 1),
+                callback: () => {
+                    const ch = message[chars++];
+                    textObj.text += ch;
+
+                    // only play type sound for characters
+                    if (/[A-Za-z0-9]/.test(ch)) {
+                        this.sound.play('type', { volume: 0.08 });
+                    }
+
+                    if (perCharCallback) perCharCallback(ch);
+
+                    if (chars >= message.length && finish) finish();
+                }
+            });
+            return speed;
+        };
+
         // intro text
-        const message = "Remember those toys... I think they were called...";
-        const character = 120; 
+        const message = "Remember those toys... they were sort of like...";
+        const character = 120;
         const dialog = this.add.text(512, 300, '', {
             font: '26px Pixel',
             color: '#000000',
@@ -63,34 +86,22 @@ class Start extends Phaser.Scene {
             .setAlpha(0);
 
         // fade trigger
-        let fade = message.indexOf("were called...");
+        let fade = message.indexOf("of like...");
         if (fade === -1) {
             fade = Math.floor(message.length * 0.75);
         }
         const fadeSpeed = message.length * character;
         const fadeStart = Math.max(0, fade * character);
-        const fadeTime = Math.max(1, fadeSpeed - fadeStart); 
+        const fadeTime = Math.max(1, fadeSpeed - fadeStart);
 
-        // intro text typing
-        let chars = 0;
-        const typing = this.time.addEvent({
-            delay: character,
-            repeat: message.length - 1,
-            callback: () => {
-                const ch = message[chars++];
-                dialog.text += ch;
+        // start typing
+        let typing = typeText(dialog, message, character, null);
 
-                // only play type sound for characters
-                if (/[A-Za-z0-9]/.test(ch)) {
-                    this.sound.play('type', { volume: 0.08 });
-                }
-            }
-        });
-
-        // white screen fade
+        // shock sfx
         const shockSfx = this.sound.add('shock', { volume: 0.6 });
 
-        overlayTween = this.tweens.add({
+        // fade tween
+        const overlayTween = this.tweens.add({
             targets: overlay,
             alpha: 1,
             duration: fadeTime,
@@ -101,11 +112,14 @@ class Start extends Phaser.Scene {
             },
             onComplete: () => {
                 if (typing) {
-                    typing.remove(false);
+                    try {
+                        typing.remove(false);
+                    } catch (e) {}
+                    typing = null;
                     dialog.text = message;
                 }
 
-                // play sound/fade before scene transition
+                // wait for sfx 
                 if (shockSfx.isPlaying) {
                     shockSfx.once('complete', () => {
                         this.time.delayedCall(0, () => this.scene.start('Play'));

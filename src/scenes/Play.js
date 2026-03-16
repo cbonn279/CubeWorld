@@ -24,6 +24,16 @@ class Play extends Phaser.Scene {
         b1.debugId = 'b1';
         b2.debugId = 'b2';
 
+         // show the HTML controls (only while Play scene is active)
+        const controls = document.getElementById('controls');
+        if (controls) controls.style.display = 'flex';
+
+        // ensure they hide when this scene shuts down / transitions away
+        // (scene.start('Message') will stop this scene; shutdown event is reliable)
+        this.events.once('shutdown', () => {
+            if (controls) controls.style.display = 'none';
+        });
+
         // physics colliders
         this.blocks.forEach(b => { this.physics.add.collider(b, this.floor); });
         for (let i = 0; i < this.blocks.length; i++) {
@@ -193,8 +203,12 @@ class Play extends Phaser.Scene {
 
             if (this.music && this.music.isPlaying) this.music.stop();
 
-            // black screen fade (play fade.wav and ensure we wait for it if it lasts longer than the visual)
+            // black screen fade
             this.powerButton.setDepth(this.blackScreen.depth + 1);
+
+            // controls off
+            const controls = document.getElementById('controls');
+            if (controls) controls.style.display = 'none';
 
             const fadeSfx = this.sound.add('fade', { volume: 0.9 });
             fadeSfx.play();

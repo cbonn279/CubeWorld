@@ -39,6 +39,7 @@ class Block extends Phaser.GameObjects.Container {
             phase: 0,
             timer: null,
             checkTimer: null,
+            togetherTimer: null,
             returning: false
         };
 
@@ -362,20 +363,31 @@ class BlockIdleState extends State {
     enter(scene, block) {
         block.screen.play('Idle1', true);
 
-        // timer for idle anims
+        // clear timer
         block.idleTimer = clearTimer(block.idleTimer);
-        block.idleTimer = scene.time.addEvent({
-            delay: 10000,
-            loop: true,
-            callback: () => {
-                if (block.stateMachine.state === 'idle') {
-                    block.screen.play('Idle2');
-                    block.screen.once('animationcomplete', () => {
-                        block.screen.play('Idle1', true);
-                    });
+
+        // time till next idle anim
+        const nextIdle = () => {
+
+            // delay between anims
+            const delay = Phaser.Math.Between(5000, 10000);
+            block.idleTimer = scene.time.delayedCall(delay, () => {
+                if (block.stateMachine.state === 'idle' && !block.animCycle) {
+                    // pick an idle
+                    const choose = Phaser.Math.RND.pick(['Idle2', 'Homer', 'Hit']);
+                    block.screen.play(choose);
+                    // back to basic idle
+                    const onComplete = (anim) => {
+                        if (!anim || anim.key !== choose) return;
+                        block.screen.off('animationcomplete', onComplete);
+                        if (block.stateMachine.state === 'idle') block.screen.play('Idle1', true);
+                        if (block.stateMachine.state === 'idle') nextIdle();
+                    };
+                    block.screen.on('animationcomplete', onComplete);
                 }
-            }
-        });
+            });
+        };
+        nextIdle();
     }
 
     execute(scene, block) {
@@ -569,10 +581,17 @@ class BlockVisitState extends State {
     execute() {}
 
     exit(scene, block) {
+
         // clear timers/vars
         block.phase1 = false;
         if (block.visit.partner) block.visit.partner.phase1 = false;
         block.visit.checkTimer = clearTimer(block.visit.checkTimer);
+        if (block.visit.togetherTimer) {
+            block.visit.togetherTimer = clearTimer(block.visit.togetherTimer);
+        }
+        if (block.visit.partner && block.visit.partner.visit && block.visit.partner.visit.togetherTimer) {
+            block.visit.partner.visit.togetherTimer = clearTimer(block.visit.partner.visit.togetherTimer);
+        }
         block.animCycle = false;
         if (block.visit.active) {
             block.visit.active = false;
@@ -713,7 +732,7 @@ class BlockVisitState extends State {
                             );
 
                         if (stillSnappedSameSide) {
-                            return; 
+                            return;
                         } else {
                             block.visit.checkTimer = clearTimer(block.visit.checkTimer);
                             block.visit.returning = true;
@@ -722,13 +741,33 @@ class BlockVisitState extends State {
                     }
                 });
 
-                // 20s fallback return
-                scene.time.delayedCall(20000, () => {
-                    if (!block.visit.active) return;
-                    block.visit.returning = true;
-                    block.visit.checkTimer = clearTimer(block.visit.checkTimer);
-                    this.returning(scene, block);
-                });
+                // time till next idle anim
+                const nextIdleT = (hostBlock) => {
+                    hostBlock.visit.togetherTimer = clearTimer(hostBlock.visit.togetherTimer);
+                    const delay = Phaser.Math.Between(5000, 10000);
+                    hostBlock.visit.togetherTimer = scene.time.delayedCall(delay, () => {
+
+                        // play if snapped still
+                        if (!hostBlock.visit || !hostBlock.visit.active || !hostBlock.snapped) return;
+
+                        // pick random together anim
+                        const choose = Phaser.Math.RND.pick(['Five','Boogie','Wiggle']);
+                        hostBlock.screen.play(choose);
+
+                        // revert to idleT
+                        const onComplete = (anim) => {
+                            if (!anim || anim.key !== choose) return;
+                            hostBlock.screen.off('animationcomplete', onComplete);
+                            if (hostBlock.visit && hostBlock.visit.active) {
+                                hostBlock.screen.play('IdleT', true);
+                                nextIdleT(hostBlock);
+                            }
+                        };
+                        hostBlock.screen.on('animationcomplete', onComplete);
+                    });
+                };
+                if (host && host.visit) nextIdleT(host);
+
                 break;
 
             default:
@@ -741,6 +780,9 @@ class BlockVisitState extends State {
     returning(scene, block) {
         const host = block.visit.partner;
         if (!host) return this.return(scene, block);
+
+        // clear host together timer
+        host.visit.togetherTimer = clearTimer(host.visit.togetherTimer);
 
         // host leaves anims
         if (block.visit.axis === 'horizontal') host.screen.play('LeaveL');
@@ -771,7 +813,10 @@ class BlockVisitState extends State {
         block.visit.phase = 0;
         block.visit.returning = false;
 
-        if (host) {
+        // clear together timers on both
+        block.visit.togetherTimer = clearTimer(block.visit.togetherTimer);
+        if (host && host.visit) {
+            host.visit.togetherTimer = clearTimer(host.visit.togetherTimer);
             host.visit.active = false;
             host.visit.partner = null;
             host.visit.phase = 0;

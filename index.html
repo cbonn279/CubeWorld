@@ -1,18 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cube World</title>
-    <script src ="./lib/phaser.js"></script>
-    <script src="./lib/StateMachine.js"></script>
-    <script src="./src/prefabs/Block.js"></script>
-    <script src ="./src/scenes/Load.js"></script>
-    <script src ="./src/scenes/Start.js"></script>
-    <script src ="./src/scenes/Play.js"></script>
-    <script src ="./src/scenes/Message.js"></script>
-    <script src ="./src/main.js"></script>
-    <style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cube World</title>
+  <script src ="./lib/phaser.js"></script>
+  <script src="./lib/StateMachine.js"></script>
+  <script src="./src/prefabs/Block.js"></script>
+  <script src ="./src/scenes/Load.js"></script>
+  <script src ="./src/scenes/Start.js"></script>
+  <script src ="./src/scenes/Play.js"></script>
+  <script src ="./src/scenes/Message.js"></script>
+  <script src ="./src/main.js"></script>
+
+  <style>
+    /* load pixel font */
+    @font-face {
+      font-family: "Pixel";
+      src: url("assets/pixel.ttf") format("truetype");
+      font-display: swap;
+    }
+
     body {
         margin: 0;
         background-color: #000000;
@@ -21,10 +29,43 @@
         align-items: center;
         height: 100vh;
         overflow: hidden;
+        flex-direction: column;
     }
-</style>
+
+    /* controls config */
+    #controls {
+      width: 1024px;   
+      display: none;               
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      padding: 6px 12px;
+      box-sizing: border-box;
+      pointer-events: none;        
+      user-select: none;
+      gap: 12px;
+    }
+
+    /* controls placement */
+    #controls .control {
+      font-family: "Pixel", monospace;
+      font-size: 10px;  
+      color: #889089;   
+      text-align: center;
+      flex: 1;            
+    }
+    #controls .control:first-child { padding-left: 8px; }
+    #controls .control:last-child  { padding-right: 8px; }
+  </style>
 </head>
 <body>
-    <div id="phaser-game"></div>
+  <div id="phaser-game"></div>
+
+  <!-- controls text -->
+  <div id="controls" aria-hidden="true">
+    <div class="control">Hold blocks with the MOUSE</div>
+    <div class="control">Flip blocks while Holding them with SPACEBAR</div>
+    <div class="control">Connect blocks through stacking/placing them together</div>
+  </div>
 </body>
 </html>

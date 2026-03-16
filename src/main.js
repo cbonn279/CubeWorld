@@ -1,16 +1,19 @@
 // Christian Bonardi
 // Cube World
 // Last Updated: 3/4/2026
-// Time Taken: 31 hours
+// Time Taken: 35 hours
 
 /*Sources:
 https://github.com/nathanaltice/BigBodies
+https://github.com/nathanaltice/MovementStudies
 https://docs.phaser.io/api-documentation/class/physics-matter-pointerconstraint
 https://phaser.io/examples/v3.85.0/game-objects/container/view/draggable-container
 https://www.youtube.com/watch?v=sF9mElVi5lQ&list=PLmcXe0-sfoSh1o3fm-_2JOod-wRUxnqb_&t=1197s
 https://phaser.discourse.group/t/dragging-containers-and-nested-containers/1258
 https://stackoverflow.com/questions/66753822/how-to-transition-to-falling-state-with-state-machine-phaser
 https://www.reddit.com/r/gamemaker/comments/8cn84w/gms2_transitional_animations_in_a_state_machine/
+https://stackoverflow.com/questions/2402886/javascript-find-if-english-alphabets-only
+https://www.youtube.com/watch?v=uh6MY_Ms6kU&t=2s
 */
 
 const config = {
